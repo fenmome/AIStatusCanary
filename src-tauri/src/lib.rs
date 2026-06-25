@@ -24,14 +24,26 @@ struct LogLine {
 fn default_true() -> bool { true }
 
 fn generate_random_token() -> String {
-    use std::time::SystemTime;
-    let seed = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(d) => d.as_nanos(),
-        Err(_) => 123456789,
-    };
+    let hostname = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "UNKNOWN_HOST".to_string());
+    let username = std::env::var("USERNAME")
+        .or_else(|_| std::env::var("USER"))
+        .unwrap_or_else(|_| "UNKNOWN_USER".to_string());
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .unwrap_or_else(|_| "UNKNOWN_HOME".to_string());
+    
+    let combined = format!("{}-{}-{}", hostname, username, home);
+    
+    // 使用 DJB2 算法计算确定性的 Hash 值作为 seed
+    let mut val: u128 = 5381;
+    for byte in combined.bytes() {
+        val = val.wrapping_mul(33).wrapping_add(byte as u128);
+    }
+    
     let chars: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let mut token = String::new();
-    let mut val = seed;
     for _ in 0..6 {
         let idx = (val % (chars.len() as u128)) as usize;
         token.push(chars[idx] as char);
@@ -780,7 +792,7 @@ fn detect_tools() -> Vec<ToolStatus> {
 
 #[tauri::command]
 fn get_app_version() -> String {
-    "1.0.8".to_string()
+    "1.0.9".to_string()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

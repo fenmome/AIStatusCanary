@@ -41,6 +41,10 @@ pub struct Config {
     pub enable_roocode: bool,
     #[serde(default = "default_true")]
     pub enable_claudecode: bool,
+    #[serde(default = "default_true")]
+    pub enable_opencode: bool,
+    #[serde(default = "default_true")]
+    pub enable_codex: bool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -91,6 +95,8 @@ fn get_default_config() -> Config {
         enable_antigravity: true,
         enable_roocode: true,
         enable_claudecode: true,
+        enable_opencode: true,
+        enable_codex: true,
     }
 }
 
@@ -200,6 +206,34 @@ fn find_latest_antigravity_transcript() -> Option<PathBuf> {
     latest_file.map(|(path, _)| path)
 }
 
+fn find_latest_codex_rollout() -> Option<PathBuf> {
+    let home = get_user_home()?;
+    let sessions_dir = Path::new(&home).join(".codex").join("sessions");
+    if !sessions_dir.exists() {
+        return None;
+    }
+    let mut latest_file: Option<(PathBuf, SystemTime)> = None;
+    let _ = visit_dirs(&sessions_dir, "jsonl", &mut latest_file);
+    latest_file.map(|(path, _)| path)
+}
+
+fn find_latest_opencode_log() -> Option<PathBuf> {
+    let home = get_user_home()?;
+    let paths_to_check = vec![
+        Path::new(&home).join(".local").join("share").join("opencode"),
+        Path::new(&home).join(".config").join("opencode"),
+    ];
+    let mut latest_file: Option<(PathBuf, SystemTime)> = None;
+    for dir in paths_to_check {
+        if dir.exists() {
+            let _ = visit_dirs(&dir, "log", &mut latest_file);
+            let _ = visit_dirs(&dir, "jsonl", &mut latest_file);
+            let _ = visit_dirs(&dir, "json", &mut latest_file);
+        }
+    }
+    latest_file.map(|(path, _)| path)
+}
+
 // 全局检索所有启用的 AI 工具，并获取其中最新修改的文件和工具名
 fn find_absolute_latest_log(config: &Config) -> Option<(PathBuf, String)> {
     let home = get_user_home()?;
@@ -247,6 +281,28 @@ fn find_absolute_latest_log(config: &Config) -> Option<(PathBuf, String)> {
         }
     }
     
+    // 4. OpenCode
+    if config.enable_opencode {
+        if let Some(path) = find_latest_opencode_log() {
+            if let Ok(meta) = fs::metadata(&path) {
+                if let Ok(mtime) = meta.modified() {
+                    files_to_compare.push((path, "OpenCode".to_string(), mtime));
+                }
+            }
+        }
+    }
+
+    // 5. Codex
+    if config.enable_codex {
+        if let Some(path) = find_latest_codex_rollout() {
+            if let Ok(meta) = fs::metadata(&path) {
+                if let Ok(mtime) = meta.modified() {
+                    files_to_compare.push((path, "Codex".to_string(), mtime));
+                }
+            }
+        }
+    }
+    
     if files_to_compare.is_empty() {
         return None;
     }
@@ -281,7 +337,8 @@ fn parse_antigravity_line(line_str: &str) -> Option<(String, String, String)> {
                     
                     let mut has_interactive = false;
                     for name in &names {
-                        if name == "run_command" || name == "ask_permission" || name == "ask_question" {
+                        if name == "run_command" || name == "ask_permission" || name == "ask_question"
+                           || name.contains("run_command") || name.contains("ask_permission") || name.contains("ask_question") {
                             has_interactive = true;
                             break;
                         }
@@ -309,6 +366,59 @@ fn parse_antigravity_line(line_str: &str) -> Option<(String, String, String)> {
         return None;
     }
     
+    Some((status, last_tool, detail))
+}
+
+fn parse_codex_line(line_str: &str) -> Option<(String, String, String)> {
+    let val: serde_json::Value = serde_json::from_str(line_str).ok()?;
+    let mut status = "RUNNING".to_string();
+    let mut last_tool = "".to_string();
+    let mut detail = "Codex 正在运行中...".to_string();
+
+    let event_type = val.get("type").and_then(|t| t.as_str()).unwrap_or("");
+    if event_type == "event_msg" {
+        if let Some(payload) = val.get("payload") {
+            let payload_type = payload.get("type").and_then(|t| t.as_str()).unwrap_or("");
+            if payload_type == "task_complete" {
+                status = "COMPLETED".to_string();
+                detail = "AI 任务执行完毕，已给出最终答复".to_string();
+            } else if payload_type == "task_started" {
+                status = "RUNNING".to_string();
+                detail = "任务启动，AI 开始工作".to_string();
+            }
+        }
+    } else if event_type == "response_item" {
+        if line_str.contains("run_command") || line_str.contains("ask_permission") || line_str.contains("ask_question") {
+            status = "WAITING".to_string();
+            detail = "请求执行敏感操作，等待您的授权确认".to_string();
+            last_tool = "CLI Command / Permission".to_string();
+        } else {
+            status = "RUNNING".to_string();
+            detail = "AI 正在执行子任务".to_string();
+        }
+    }
+
+    Some((status, last_tool, detail))
+}
+
+fn parse_opencode_line(line_str: &str) -> Option<(String, String, String)> {
+    let mut status = "RUNNING".to_string();
+    let mut last_tool = "".to_string();
+    let mut detail = "OpenCode 正在执行中...".to_string();
+
+    let lower = line_str.to_lowercase();
+    if lower.contains("task_complete") || lower.contains("completed") || lower.contains("finished") {
+        status = "COMPLETED".to_string();
+        detail = "AI 任务执行完毕，已给出最终答复".to_string();
+    } else if lower.contains("ask_permission") || lower.contains("ask_question") || lower.contains("run_command") || lower.contains("waiting for approval") || lower.contains("require_escalated") {
+        status = "WAITING".to_string();
+        detail = "请求执行敏感指令，等待您的授权确认".to_string();
+        last_tool = "Command / Interactive Tool".to_string();
+    } else {
+        status = "RUNNING".to_string();
+        detail = "AI 正在分析或执行自动工具".to_string();
+    }
+
     Some((status, last_tool, detail))
 }
 
@@ -405,6 +515,16 @@ fn process_any_log(path: &Path, tool_name: &str) -> Option<(String, String, Stri
             }
         }
         Some((status, last_tool, detail))
+    } else if tool_name == "OpenCode" {
+        let content = fs::read_to_string(path).ok()?;
+        let lines: Vec<&str> = content.lines().collect();
+        let last_line = lines.last()?;
+        parse_opencode_line(last_line)
+    } else if tool_name == "Codex" {
+        let content = fs::read_to_string(path).ok()?;
+        let lines: Vec<&str> = content.lines().collect();
+        let last_line = lines.last()?;
+        parse_codex_line(last_line)
     } else {
         None
     }
@@ -569,6 +689,24 @@ fn detect_tools() -> Vec<ToolStatus> {
         path: claude_path.to_string_lossy().to_string(),
     });
     
+    // 4. OpenCode
+    let opencode_path1 = Path::new(&home).join(".config").join("opencode");
+    let opencode_path2 = Path::new(&home).join(".local").join("share").join("opencode");
+    let opencode_installed = opencode_path1.exists() || opencode_path2.exists();
+    results.push(ToolStatus {
+        name: "OpenCode".to_string(),
+        installed: opencode_installed,
+        path: if opencode_path1.exists() { opencode_path1.to_string_lossy().to_string() } else { opencode_path2.to_string_lossy().to_string() },
+    });
+
+    // 5. Codex
+    let codex_path = Path::new(&home).join(".codex");
+    results.push(ToolStatus {
+        name: "Codex".to_string(),
+        installed: codex_path.exists(),
+        path: codex_path.to_string_lossy().to_string(),
+    });
+
     results
 }
 

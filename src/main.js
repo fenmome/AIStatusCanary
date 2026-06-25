@@ -214,6 +214,12 @@ async function renderToolsDetection(config) {
             } else if (tool.name === "Claude Code") {
                 configKey = "enable_claudecode";
                 isEnabled = config.enable_claudecode;
+            } else if (tool.name === "OpenCode") {
+                configKey = "enable_opencode";
+                isEnabled = config.enable_opencode;
+            } else if (tool.name === "Codex") {
+                configKey = "enable_codex";
+                isEnabled = config.enable_codex;
             }
             
             const badgeClass = tool.installed ? "badge-installed" : "badge-missing";
@@ -281,10 +287,11 @@ window.saveSettings = async function(e) {
         push_on_running: document.getElementById('push_on_running').checked,
         port: 8000,
         
-        // 绑定 AI 工具启用开关，如果未检测到则强制为 false
         enable_antigravity: document.getElementById('enable_antigravity') ? document.getElementById('enable_antigravity').checked : false,
         enable_roocode: document.getElementById('enable_roocode') ? document.getElementById('enable_roocode').checked : false,
         enable_claudecode: document.getElementById('enable_claudecode') ? document.getElementById('enable_claudecode').checked : false,
+        enable_opencode: document.getElementById('enable_opencode') ? document.getElementById('enable_opencode').checked : false,
+        enable_codex: document.getElementById('enable_codex') ? document.getElementById('enable_codex').checked : false,
     };
     
     try {

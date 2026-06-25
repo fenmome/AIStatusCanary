@@ -38,8 +38,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'AI Status Canary v__VERSION__'
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AI Status Canary ${{ github.ref_name }}'
           releaseBody: 'AI 状态哨兵桌面客户端最新编译版。已原生支持 macOS (M系列芯片及Intel芯片双架构通用版) 和 Windows 平台。云端全自动构建流水线发布。'
           releaseDraft: true
           prerelease: false

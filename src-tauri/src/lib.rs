@@ -113,15 +113,12 @@ fn find_latest_file_in_dir(dir: &Path, extension: &str) -> Option<PathBuf> {
             if path.is_file() && path.extension().map(|e| e == extension).unwrap_or(false) {
                 if let Ok(meta) = fs::metadata(&path) {
                     if let Ok(mtime) = meta.modified() {
-                        match latest {
-                            Some((_, prev_mtime)) => {
-                                if mtime > prev_mtime {
-                                    latest = Some((path, mtime));
-                                }
-                            }
-                            None => {
-                                latest = Some((path, mtime));
-                            }
+                        let is_newer = match latest {
+                            Some((_, prev_mtime)) => mtime > prev_mtime,
+                            None => true,
+                        };
+                        if is_newer {
+                            latest = Some((path, mtime));
                         }
                     }
                 }
@@ -151,15 +148,12 @@ fn visit_dirs(dir: &Path, extension: &str, latest: &mut Option<(PathBuf, SystemT
             } else if path.is_file() && path.extension().map(|e| e == extension).unwrap_or(false) {
                 if let Ok(meta) = fs::metadata(&path) {
                     if let Ok(mtime) = meta.modified() {
-                        match latest {
-                            Some((_, prev_mtime)) => {
-                                if mtime > *prev_mtime {
-                                    *latest = Some((path, mtime));
-                                }
-                            }
-                            None => {
-                                *latest = Some((path, mtime));
-                            }
+                        let is_newer = match latest {
+                            Some((_, prev_mtime)) => mtime > *prev_mtime,
+                            None => true,
+                        };
+                        if is_newer {
+                            *latest = Some((path, mtime));
                         }
                     }
                 }
@@ -189,15 +183,12 @@ fn find_latest_antigravity_transcript() -> Option<PathBuf> {
                 if log_file.exists() {
                     if let Ok(meta) = fs::metadata(&log_file) {
                         if let Ok(mtime) = meta.modified() {
-                            match latest_file {
-                                Some((_, ref prev_mtime)) => {
-                                    if mtime > *prev_mtime {
-                                        latest_file = Some((log_file, mtime));
-                                    }
-                                }
-                                None => {
-                                    latest_file = Some((log_file, mtime));
-                                }
+                            let is_newer = match latest_file {
+                                Some((_, prev_mtime)) => mtime > prev_mtime,
+                                None => true,
+                            };
+                            if is_newer {
+                                latest_file = Some((log_file, mtime));
                             }
                         }
                     }

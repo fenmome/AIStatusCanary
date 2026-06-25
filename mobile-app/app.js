@@ -1,6 +1,6 @@
 // AI Status Canary Mobile - Business Logic
 
-const API_BASE = "https://ai-status-worker.fenmo-wind.workers.dev";
+const API_BASE = window.location.origin;
 let isSubscribed = false;
 let swRegistration = null;
 let lastStatus = null;

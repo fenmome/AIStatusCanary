@@ -6,3 +6,6 @@ compatibility_flags = [ "nodejs_compat" ]
 [[kv_namespaces]]
 binding = "CANARY_KV"
 id = "afdb14f7199e494aba53d4a7b7c66a0b"
+
+[assets]
+directory = "../mobile-app"

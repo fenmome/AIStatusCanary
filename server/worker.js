@@ -3,6 +3,9 @@ import webpush from 'web-push';
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (!url.pathname.startsWith('/api/')) {
+      return env.ASSETS.fetch(request);
+    }
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',

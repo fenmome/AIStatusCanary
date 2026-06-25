@@ -76,6 +76,35 @@
                 💡 <b>iOS 用户提示</b>: 请点击浏览器底部的“分享”按钮，选择 <b>“添加到主屏幕”</b>，然后再打开此 App 即可启用原生推送通知。
             </div>
         </section>
+        
+        <!-- 个性化偏好设置 -->
+        <section class="glass-panel preference-section">
+            <h3>⚙️ 提醒偏好配置</h3>
+            <div class="pref-group">
+                <div class="pref-item">
+                    <div class="pref-info">
+                        <span class="pref-title">通知震动模式</span>
+                        <span class="pref-desc">后台推送唤醒时的震动强度</span>
+                    </div>
+                    <select id="pref-vibrate" class="custom-select" onchange="savePreference('vibrate', this.value)">
+                        <option value="long">🚨 经典长震 (3秒)</option>
+                        <option value="triple">⚡ 急促三短震</option>
+                        <option value="none">🔕 仅显示不震动</option>
+                    </select>
+                </div>
+                <div class="pref-item">
+                    <div class="pref-info">
+                        <span class="pref-title">前台提示音效</span>
+                        <span class="pref-desc">应用在前台打开时的合成提示铃声</span>
+                    </div>
+                    <select id="pref-sound" class="custom-select" onchange="savePreference('sound', this.value)">
+                        <option value="beeps">🎵 科技感电子音</option>
+                        <option value="chimes">🔔 经典清脆编钟</option>
+                        <option value="none">🔇 静音模式</option>
+                    </select>
+                </div>
+            </div>
+        </section>
 
         <!-- 历史警报日志 -->
         <section class="glass-panel logs-section">

@@ -190,6 +190,18 @@ window.switchTab = function(tabId) {
     document.getElementById(tabId).classList.add('active');
 };
 
+window.toggleToolPanel = function(prefix) {
+    const mainToggle = document.getElementById(`enable_${prefix === 'anti' ? 'antigravity' : prefix === 'roo' ? 'roocode' : prefix === 'claude' ? 'claudecode' : prefix === 'open' ? 'opencode' : 'codex'}`);
+    const panel = document.getElementById(`panel-${prefix}`);
+    if (panel) {
+        if (mainToggle && mainToggle.checked) {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+};
+
 // 🤖 智能探测并渲染本地 AI 工具列表
 async function renderToolsDetection(config) {
     const tauri = getTauri();
@@ -201,43 +213,77 @@ async function renderToolsDetection(config) {
         let html = "";
         
         tools.forEach(tool => {
-            // 根据名称对应 config 中的开关
             let configKey = "";
+            let prefix = "";
             let isEnabled = true;
             
             if (tool.name === "Antigravity") {
                 configKey = "enable_antigravity";
+                prefix = "anti";
                 isEnabled = config.enable_antigravity;
             } else if (tool.name === "Roo Code / Cline") {
                 configKey = "enable_roocode";
+                prefix = "roo";
                 isEnabled = config.enable_roocode;
             } else if (tool.name === "Claude Code") {
                 configKey = "enable_claudecode";
+                prefix = "claude";
                 isEnabled = config.enable_claudecode;
             } else if (tool.name === "OpenCode") {
                 configKey = "enable_opencode";
+                prefix = "open";
                 isEnabled = config.enable_opencode;
             } else if (tool.name === "Codex") {
                 configKey = "enable_codex";
+                prefix = "codex";
                 isEnabled = config.enable_codex;
             }
+            
+            // 获取专属细颗粒度开关的值（若没有，则默认使用全局开关值）
+            const getVal = (key, globalVal) => (config[key] !== undefined && config[key] !== null) ? config[key] : globalVal;
+            const pushWaiting = getVal(`${prefix}_push_waiting`, config.push_on_waiting);
+            const pushCompleted = getVal(`${prefix}_push_completed`, config.push_on_completed);
+            const pushRunning = getVal(`${prefix}_push_running`, config.push_on_running);
             
             const badgeClass = tool.installed ? "badge-installed" : "badge-missing";
             const badgeText = tool.installed ? "已检测到" : "未检测到";
             
             html += `
-                <div class="tool-card">
-                    <div class="tool-info">
-                        <div class="tool-meta">
-                            <span class="tool-name">${tool.name}</span>
-                            <span class="badge ${badgeClass}">${badgeText}</span>
+                <div class="tool-item-container">
+                    <div class="tool-card">
+                        <div class="tool-info">
+                            <div class="tool-meta">
+                                <span class="tool-name">${tool.name}</span>
+                                <span class="badge ${badgeClass}">${badgeText}</span>
+                            </div>
+                            <span class="tool-path" title="${tool.path}">路径: ${tool.path}</span>
                         </div>
-                        <span class="tool-path" title="${tool.path}">路径: ${tool.path}</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="${configKey}" ${isEnabled ? 'checked' : ''} ${!tool.installed ? 'disabled' : ''} onchange="toggleToolPanel('${prefix}')">
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="${configKey}" ${isEnabled ? 'checked' : ''} ${!tool.installed ? 'disabled' : ''}>
-                        <span class="slider"></span>
-                    </label>
+                    <!-- 细粒度控制抽屉面板 -->
+                    <div id="panel-${prefix}" class="tool-sub-panel" style="display: ${isEnabled && tool.installed ? 'block' : 'none'};">
+                        <div class="sub-panel-title">专属推送时机配置：</div>
+                        <div class="checkbox-grid-sub">
+                            <label class="checkbox-item-sub">
+                                <input type="checkbox" id="${prefix}_push_waiting" ${pushWaiting ? 'checked' : ''}>
+                                <span class="checkbox-box-sub"></span>
+                                <span>等待确认</span>
+                            </label>
+                            <label class="checkbox-item-sub">
+                                <input type="checkbox" id="${prefix}_push_completed" ${pushCompleted ? 'checked' : ''}>
+                                <span class="checkbox-box-sub"></span>
+                                <span>任务完成</span>
+                            </label>
+                            <label class="checkbox-item-sub">
+                                <input type="checkbox" id="${prefix}_push_running" ${pushRunning ? 'checked' : ''}>
+                                <span class="checkbox-box-sub"></span>
+                                <span>开始执行</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             `;
         });
@@ -294,6 +340,27 @@ window.saveSettings = async function(e) {
         enable_claudecode: document.getElementById('enable_claudecode') ? document.getElementById('enable_claudecode').checked : false,
         enable_opencode: document.getElementById('enable_opencode') ? document.getElementById('enable_opencode').checked : false,
         enable_codex: document.getElementById('enable_codex') ? document.getElementById('enable_codex').checked : false,
+
+        // 专属细粒度子配置
+        anti_push_running: document.getElementById('anti_push_running') ? document.getElementById('anti_push_running').checked : false,
+        anti_push_waiting: document.getElementById('anti_push_waiting') ? document.getElementById('anti_push_waiting').checked : false,
+        anti_push_completed: document.getElementById('anti_push_completed') ? document.getElementById('anti_push_completed').checked : false,
+
+        roo_push_running: document.getElementById('roo_push_running') ? document.getElementById('roo_push_running').checked : false,
+        roo_push_waiting: document.getElementById('roo_push_waiting') ? document.getElementById('roo_push_waiting').checked : false,
+        roo_push_completed: document.getElementById('roo_push_completed') ? document.getElementById('roo_push_completed').checked : false,
+
+        claude_push_running: document.getElementById('claude_push_running') ? document.getElementById('claude_push_running').checked : false,
+        claude_push_waiting: document.getElementById('claude_push_waiting') ? document.getElementById('claude_push_waiting').checked : false,
+        claude_push_completed: document.getElementById('claude_push_completed') ? document.getElementById('claude_push_completed').checked : false,
+
+        open_push_running: document.getElementById('open_push_running') ? document.getElementById('open_push_running').checked : false,
+        open_push_waiting: document.getElementById('open_push_waiting') ? document.getElementById('open_push_waiting').checked : false,
+        open_push_completed: document.getElementById('open_push_completed') ? document.getElementById('open_push_completed').checked : false,
+
+        codex_push_running: document.getElementById('codex_push_running') ? document.getElementById('codex_push_running').checked : false,
+        codex_push_waiting: document.getElementById('codex_push_waiting') ? document.getElementById('codex_push_waiting').checked : false,
+        codex_push_completed: document.getElementById('codex_push_completed') ? document.getElementById('codex_push_completed').checked : false,
     };
     
     try {
@@ -312,9 +379,44 @@ async function sendNotification(status, detail) {
     if (!tauri) return;
     
     const config = await tauri.core.invoke('get_config');
-    const should_push = (status === 'RUNNING' && config.push_on_running) ||
-                        (status === 'WAITING' && config.push_on_waiting) ||
-                        (status === 'COMPLETED' && config.push_on_completed);
+    let current = null;
+    try {
+        current = await tauri.core.invoke('get_status');
+    } catch (e) {
+        console.error("获取活跃工具状态失败:", e);
+    }
+    
+    // 匹配当前最新的活跃工具
+    const activeToolLabel = current ? (current.conversation_id || "") : "";
+    let prefix = "";
+    if (activeToolLabel.includes("Antigravity")) {
+        prefix = "anti";
+    } else if (activeToolLabel.includes("Roo Code") || activeToolLabel.includes("Cline")) {
+        prefix = "roo";
+    } else if (activeToolLabel.includes("Claude Code")) {
+        prefix = "claude";
+    } else if (activeToolLabel.includes("OpenCode")) {
+        prefix = "open";
+    } else if (activeToolLabel.includes("Codex")) {
+        prefix = "codex";
+    }
+
+    let should_push = false;
+    if (prefix) {
+        const getVal = (key, globalVal) => (config[key] !== undefined && config[key] !== null) ? config[key] : globalVal;
+        
+        if (status === 'RUNNING') {
+            should_push = getVal(`${prefix}_push_running`, config.push_on_running);
+        } else if (status === 'WAITING') {
+            should_push = getVal(`${prefix}_push_waiting`, config.push_on_waiting);
+        } else if (status === 'COMPLETED') {
+            should_push = getVal(`${prefix}_push_completed`, config.push_on_completed);
+        }
+    } else {
+        should_push = (status === 'RUNNING' && config.push_on_running) ||
+                      (status === 'WAITING' && config.push_on_waiting) ||
+                      (status === 'COMPLETED' && config.push_on_completed);
+    }
     
     if (!should_push) return;
     
@@ -643,6 +745,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     
     const tauri = getTauri();
     if (tauri) {
+        // 获取本地版本号
+        tauri.core.invoke('get_app_version').then(ver => {
+            document.getElementById('app-version').innerText = 'v' + ver;
+        }).catch(e => console.error("获取本地版本号失败:", e));
+
         // 获取初始状态
         try {
             const currentData = await tauri.core.invoke('get_status');
@@ -660,7 +767,109 @@ window.addEventListener('DOMContentLoaded', async () => {
         } catch (e) {
             console.error("注册 Tauri 状态监听失败:", e);
         }
+        
+        // 启动延迟自动静默检测更新
+        setTimeout(() => {
+            checkUpdateManual(false);
+        }, 2000);
     } else {
         document.getElementById('session-id').innerText = '非桌面端环境';
     }
 });
+
+// 🆙 检查更新逻辑
+let updateTargetUrl = "";
+
+function isVersionGreater(vNew, vCurrent) {
+    const clean = v => v.replace(/^v/, '').split('.').map(Number);
+    const arrNew = clean(vNew);
+    const arrCurrent = clean(vCurrent);
+    for (let i = 0; i < Math.max(arrNew.length, arrCurrent.length); i++) {
+        const valNew = arrNew[i] || 0;
+        const valCurrent = arrCurrent[i] || 0;
+        if (valNew > valCurrent) return true;
+        if (valNew < valCurrent) return false;
+    }
+    return false;
+}
+
+window.checkUpdateManual = async function(isManual = false) {
+    const tauri = getTauri();
+    let currentVersion = "1.0.5";
+    if (tauri) {
+        try {
+            currentVersion = await tauri.core.invoke('get_app_version');
+            document.getElementById('app-version').innerText = 'v' + currentVersion;
+        } catch (e) {
+            console.error("获取本地版本失败:", e);
+        }
+    }
+    
+    if (isManual) {
+        showToast("正在检查更新...");
+    }
+    
+    try {
+        const response = await fetch('https://api.github.com/repos/fenmome/AIStatusCanary/releases/latest');
+        if (!response.ok) throw new Error("连接 GitHub 失败");
+        const data = await response.json();
+        
+        const latestVersion = data.tag_name;
+        updateTargetUrl = data.html_url;
+        
+        if (isVersionGreater(latestVersion, currentVersion)) {
+            document.getElementById('ver-current').innerText = 'v' + currentVersion;
+            document.getElementById('ver-new').innerText = latestVersion;
+            
+            // 解析简单的 markdown 格式日志
+            let body = data.body || "没有提供更新说明。";
+            let htmlChangelog = body
+                .replace(/\r\n/g, '\n')
+                .split('\n')
+                .map(line => {
+                    line = line.trim();
+                    if (line.startsWith('-') || line.startsWith('*')) {
+                        return `<li>${line.substring(1).trim()}</li>`;
+                    }
+                    if (line) {
+                        return `<p>${line}</p>`;
+                    }
+                    return '';
+                })
+                .join('');
+            if (htmlChangelog.includes('<li>')) {
+                htmlChangelog = `<ul>${htmlChangelog}</ul>`;
+            }
+            
+            document.getElementById('update-changelog').innerHTML = htmlChangelog;
+            document.getElementById('update-modal').style.display = 'flex';
+        } else {
+            if (isManual) {
+                showToast("当前已是最新版本 v" + currentVersion);
+            }
+        }
+    } catch (e) {
+        console.error("检查更新失败:", e);
+        if (isManual) {
+            showToast("检查更新失败，请检查网络连接");
+        }
+    }
+};
+
+window.closeUpdateModal = function() {
+    document.getElementById('update-modal').style.display = 'none';
+};
+
+window.goToUpdateUrl = function() {
+    const tauri = getTauri();
+    const url = updateTargetUrl || "https://github.com/fenmome/AIStatusCanary/releases";
+    if (tauri) {
+        tauri.core.invoke("plugin:opener|open_url", { url }).catch(e => {
+            console.error("Opener failed, fallback to window.open", e);
+            window.open(url, "_blank");
+        });
+    } else {
+        window.open(url, "_blank");
+    }
+    closeUpdateModal();
+};

@@ -46,6 +46,27 @@ pub struct Config {
     pub enable_opencode: bool,
     #[serde(default = "default_true")]
     pub enable_codex: bool,
+
+    // 各工具专属细颗粒度推送选项
+    pub anti_push_running: Option<bool>,
+    pub anti_push_waiting: Option<bool>,
+    pub anti_push_completed: Option<bool>,
+
+    pub roo_push_running: Option<bool>,
+    pub roo_push_waiting: Option<bool>,
+    pub roo_push_completed: Option<bool>,
+
+    pub claude_push_running: Option<bool>,
+    pub claude_push_waiting: Option<bool>,
+    pub claude_push_completed: Option<bool>,
+
+    pub open_push_running: Option<bool>,
+    pub open_push_waiting: Option<bool>,
+    pub open_push_completed: Option<bool>,
+
+    pub codex_push_running: Option<bool>,
+    pub codex_push_waiting: Option<bool>,
+    pub codex_push_completed: Option<bool>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -99,6 +120,26 @@ fn get_default_config() -> Config {
         enable_claudecode: true,
         enable_opencode: true,
         enable_codex: true,
+        
+        anti_push_running: Some(false),
+        anti_push_waiting: Some(true),
+        anti_push_completed: Some(true),
+
+        roo_push_running: Some(false),
+        roo_push_waiting: Some(true),
+        roo_push_completed: Some(true),
+
+        claude_push_running: Some(false),
+        claude_push_waiting: Some(true),
+        claude_push_completed: Some(true),
+
+        open_push_running: Some(false),
+        open_push_waiting: Some(true),
+        open_push_completed: Some(true),
+
+        codex_push_running: Some(false),
+        codex_push_waiting: Some(true),
+        codex_push_completed: Some(true),
     }
 }
 
@@ -712,6 +753,11 @@ fn detect_tools() -> Vec<ToolStatus> {
     results
 }
 
+#[tauri::command]
+fn get_app_version() -> String {
+    "1.0.5".to_string()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let mut config = get_default_config();
@@ -750,7 +796,7 @@ pub fn run() {
             
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_status, get_config, save_config, detect_tools])
+        .invoke_handler(tauri::generate_handler![get_status, get_config, save_config, detect_tools, get_app_version])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

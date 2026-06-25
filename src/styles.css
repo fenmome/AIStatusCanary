@@ -986,3 +986,257 @@ input:checked + .slider:before {
         grid-template-columns: 1fr;
     }
 }
+
+/* 🆙 检查更新与弹窗样式 */
+.sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.update-link {
+    color: var(--color-running);
+    text-decoration: none;
+    font-size: 0.68rem;
+    font-weight: 500;
+    transition: opacity 0.2s;
+    border-bottom: 1px dashed var(--color-running);
+    padding-bottom: 1px;
+}
+
+.update-link:hover {
+    opacity: 0.8;
+}
+
+/* 弹窗遮罩层 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+/* 弹窗卡片 */
+.modal-content {
+    width: 440px;
+    background: rgba(15, 20, 34, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    padding: 1.75rem;
+    border-radius: 16px;
+    animation: modalSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
+
+.modal-header h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.update-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--color-running);
+}
+
+/* 版本对比区 */
+.version-badge-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    margin-bottom: 1rem;
+    width: fit-content;
+}
+
+.ver-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+.badge-current {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+}
+
+.badge-new {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--color-running);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.ver-arrow {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.update-log-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+/* 更新日志框 */
+.update-changelog {
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    padding: 0.75rem;
+    border-radius: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.update-changelog ul {
+    margin: 0;
+    padding-left: 1.2rem;
+}
+
+.update-changelog li {
+    margin-bottom: 0.35rem;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+/* 🤖 选项 C - 专属细粒度子开关样式 */
+.tool-item-container {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    margin-bottom: 0.85rem;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tool-item-container .tool-card {
+    border: none;
+    background: transparent;
+    margin-bottom: 0;
+    border-radius: 0;
+}
+
+/* 细粒度控制抽屉面板 */
+.tool-sub-panel {
+    background: rgba(0, 0, 0, 0.15);
+    border-top: 1px dashed rgba(255, 255, 255, 0.05);
+    padding: 0.75rem 1rem 0.85rem 1rem;
+    animation: subPanelSlideDown 0.25s ease-out;
+}
+
+@keyframes subPanelSlideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sub-panel-title {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* 子复选框网格布局 */
+.checkbox-grid-sub {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.checkbox-item-sub {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-item-sub input {
+    display: none;
+}
+
+.checkbox-box-sub {
+    width: 13px;
+    height: 13px;
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    position: relative;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.checkbox-item-sub input:checked + .checkbox-box-sub {
+    background-color: var(--color-running);
+    border-color: var(--color-running);
+}
+
+.checkbox-item-sub input:checked + .checkbox-box-sub:after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    top: 0.5px;
+    width: 2.5px;
+    height: 5px;
+    border: solid white;
+    border-width: 0 1.2px 1.2px 0;
+    transform: rotate(45deg);
+}
+
+

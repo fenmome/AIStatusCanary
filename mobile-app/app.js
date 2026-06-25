@@ -144,6 +144,15 @@ async function pollStatus() {
             // 避免首次加载就记录历史
             if (lastStatus) {
                 addHistoryEvent(data.status, data.last_tool, data.detail);
+                
+                // 🔔 状态由 RUNNING 变更为 WAITING 时播放前台提示音
+                if (data.status === 'WAITING') {
+                    getVal('sound', 'beeps').then(soundPref => {
+                        if (soundPref !== 'none') {
+                            playTestSound(soundPref);
+                        }
+                    });
+                }
             }
             lastStatus = data;
         }
@@ -270,4 +279,134 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // 每 2.5 秒轮询一次状态
     setInterval(pollStatus, 2500);
+    
+    // 载入偏好设置并渲染
+    getVal('vibrate', 'long').then(val => {
+        document.getElementById('pref-vibrate').value = val;
+    });
+    getVal('sound', 'beeps').then(val => {
+        document.getElementById('pref-sound').value = val;
+    });
 });
+
+// 简易 IndexedDB 辅助函数
+const DB_NAME = "canary_pref_db";
+const STORE_NAME = "preferences";
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                db.createObjectStore(STORE_NAME);
+            }
+        };
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function getVal(key, defaultVal) {
+    try {
+        const db = await openDB();
+        return new Promise((resolve) => {
+            const tx = db.transaction(STORE_NAME, "readonly");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.get(key);
+            req.onsuccess = () => resolve(req.result !== undefined ? req.result : defaultVal);
+            req.onerror = () => resolve(defaultVal);
+        });
+    } catch (e) {
+        return defaultVal;
+    }
+}
+
+async function setVal(key, val) {
+    try {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.put(val, key);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    } catch (e) {
+        console.error("IndexedDB write failed", e);
+    }
+}
+
+window.savePreference = async function(key, val) {
+    await setVal(key, val);
+    showToast("偏好设置已更新");
+    
+    // 如果是提示音设置变更且不为 none，则播放试听
+    if (key === 'sound' && val !== 'none') {
+        playTestSound(val);
+    }
+};
+
+// Web Audio API 合成器
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+// 播放提示音 (Web Audio API 合成，免加载 MP3)
+window.playTestSound = async function(type) {
+    try {
+        initAudio();
+        if (!audioCtx) return;
+        
+        const now = audioCtx.currentTime;
+        
+        if (type === 'beeps') {
+            // 科技感方波哔哔声 (高低交替)
+            const freqs = [880, 660, 880, 660];
+            freqs.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+                
+                gain.gain.setValueAtTime(0, now + idx * 0.12);
+                gain.gain.linearRampToValueAtTime(0.12, now + idx * 0.12 + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + idx * 0.12);
+                osc.stop(now + idx * 0.12 + 0.12);
+            });
+        } else if (type === 'chimes') {
+            // 经典清脆清亮编钟 (和弦渐弱)
+            const freqs = [523.25, 659.25, 783.99, 1046.50];
+            freqs.forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+                
+                gain.gain.setValueAtTime(0, now + idx * 0.04);
+                gain.gain.linearRampToValueAtTime(0.08, now + idx * 0.04 + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.8);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + idx * 0.04);
+                osc.stop(now + idx * 0.04 + 0.8);
+            });
+        }
+    } catch (e) {
+        console.error("音频合成播放失败:", e);
+    }
+};

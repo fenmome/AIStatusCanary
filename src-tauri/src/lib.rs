@@ -20,6 +20,9 @@ struct LogLine {
     tool_calls: Option<Vec<ToolCall>>,
 }
 
+// 辅助函数：提供 Serde 反序列化默认值
+fn default_true() -> bool { true }
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct Config {
     pub bark_key: String,
@@ -29,7 +32,15 @@ pub struct Config {
     pub push_on_running: bool,
     pub push_on_waiting: bool,
     pub push_on_completed: bool,
-    pub port: u16, // 本地监听端口，保留支持
+    pub port: u16,
+    
+    // 多工具监测开关，默认启用
+    #[serde(default = "default_true")]
+    pub enable_antigravity: bool,
+    #[serde(default = "default_true")]
+    pub enable_roocode: bool,
+    #[serde(default = "default_true")]
+    pub enable_claudecode: bool,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -50,7 +61,14 @@ pub struct StatusState {
     pub events: Vec<EventItem>,
 }
 
-// 应用程序全局状态，使用 Mutex 保证线程安全
+#[derive(serde::Serialize, Clone)]
+pub struct ToolStatus {
+    pub name: String,
+    pub installed: bool,
+    pub path: String,
+}
+
+// 应用程序全局状态
 pub struct AppState {
     pub state: Mutex<StatusState>,
 }
@@ -70,24 +88,94 @@ fn get_default_config() -> Config {
         push_on_waiting: true,
         push_on_completed: true,
         port: 8000,
+        enable_antigravity: true,
+        enable_roocode: true,
+        enable_claudecode: true,
     }
 }
 
-// 检索最新的 transcript.jsonl 文件
-fn find_latest_transcript() -> Option<PathBuf> {
-    let home = std::env::var("USERPROFILE")
+// 辅助函数：安全获取用户目录
+fn get_user_home() -> Option<String> {
+    std::env::var("USERPROFILE")
         .or_else(|_| std::env::var("HOME"))
-        .ok()?;
-        
-    let brain_dir = Path::new(&home)
-        .join(".gemini")
-        .join("antigravity")
-        .join("brain");
-        
+        .ok()
+}
+
+// 在指定文件夹下检索最新扩展名的文件
+fn find_latest_file_in_dir(dir: &Path, extension: &str) -> Option<PathBuf> {
+    if !dir.exists() {
+        return None;
+    }
+    let mut latest: Option<(PathBuf, SystemTime)> = None;
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().map(|e| e == extension).unwrap_or(false) {
+                if let Ok(meta) = fs::metadata(&path) {
+                    if let Ok(mtime) = meta.modified() {
+                        match latest {
+                            Some((_, prev_mtime)) => {
+                                if mtime > prev_mtime {
+                                    latest = Some((path, mtime));
+                                }
+                            }
+                            None => {
+                                latest = Some((path, mtime));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    latest.map(|(p, _)| p)
+}
+
+// 递归查找指定扩展名最新的文件
+fn find_latest_file_in_dir_recursive(dir: &Path, extension: &str) -> Option<PathBuf> {
+    if !dir.exists() {
+        return None;
+    }
+    let mut latest: Option<(PathBuf, SystemTime)> = None;
+    let _ = visit_dirs(dir, extension, &mut latest);
+    latest.map(|(p, _)| p)
+}
+
+fn visit_dirs(dir: &Path, extension: &str, latest: &mut Option<(PathBuf, SystemTime)>) -> std::io::Result<()> {
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                let _ = visit_dirs(&path, extension, latest);
+            } else if path.is_file() && path.extension().map(|e| e == extension).unwrap_or(false) {
+                if let Ok(meta) = fs::metadata(&path) {
+                    if let Ok(mtime) = meta.modified() {
+                        match latest {
+                            Some((_, prev_mtime)) => {
+                                if mtime > *prev_mtime {
+                                    *latest = Some((path, mtime));
+                                }
+                            }
+                            None => {
+                                *latest = Some((path, mtime));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// 检索最新的 Antigravity 日志文件
+fn find_latest_antigravity_transcript() -> Option<PathBuf> {
+    let home = get_user_home()?;
+    let brain_dir = Path::new(&home).join(".gemini").join("antigravity").join("brain");
     if !brain_dir.exists() {
         return None;
     }
-    
     let mut latest_file: Option<(PathBuf, SystemTime)> = None;
     
     if let Ok(entries) = fs::read_dir(brain_dir) {
@@ -121,8 +209,65 @@ fn find_latest_transcript() -> Option<PathBuf> {
     latest_file.map(|(path, _)| path)
 }
 
-// 解析最新的一行日志，判断AI状态
-fn process_line(line_str: &str) -> Option<(String, String, String)> {
+// 全局检索所有启用的 AI 工具，并获取其中最新修改的文件和工具名
+fn find_absolute_latest_log(config: &Config) -> Option<(PathBuf, String)> {
+    let home = get_user_home()?;
+    let mut files_to_compare = Vec::new();
+    
+    // 1. Antigravity
+    if config.enable_antigravity {
+        if let Some(path) = find_latest_antigravity_transcript() {
+            if let Ok(meta) = fs::metadata(&path) {
+                if let Ok(mtime) = meta.modified() {
+                    files_to_compare.push((path, "Antigravity".to_string(), mtime));
+                }
+            }
+        }
+    }
+    
+    // 2. Roo Code
+    if config.enable_roocode {
+        let roo_dir = if cfg!(target_os = "windows") {
+            Path::new(&home).join("AppData").join("Roaming").join("Code").join("User")
+                .join("globalStorage").join("saoudrizwan.claude-dev").join("logs")
+        } else {
+            Path::new(&home).join("Library").join("Application Support").join("Code").join("User")
+                .join("globalStorage").join("saoudrizwan.claude-dev").join("logs")
+        };
+        
+        if let Some(path) = find_latest_file_in_dir(&roo_dir, "json") {
+            if let Ok(meta) = fs::metadata(&path) {
+                if let Ok(mtime) = meta.modified() {
+                    files_to_compare.push((path, "Roo Code".to_string(), mtime));
+                }
+            }
+        }
+    }
+    
+    // 3. Claude Code
+    if config.enable_claudecode {
+        let claude_projects_dir = Path::new(&home).join(".claude").join("projects");
+        if let Some(path) = find_latest_file_in_dir_recursive(&claude_projects_dir, "jsonl") {
+            if let Ok(meta) = fs::metadata(&path) {
+                if let Ok(mtime) = meta.modified() {
+                    files_to_compare.push((path, "Claude Code".to_string(), mtime));
+                }
+            }
+        }
+    }
+    
+    if files_to_compare.is_empty() {
+        return None;
+    }
+    
+    // 按修改时间降序排序（最新修改的排前面）
+    files_to_compare.sort_by(|a, b| b.2.cmp(&a.2));
+    let (path, tool_name, _) = files_to_compare.remove(0);
+    Some((path, tool_name))
+}
+
+// 解析 Antigravity (JSONL) 的一行
+fn parse_antigravity_line(line_str: &str) -> Option<(String, String, String)> {
     let line: LogLine = serde_json::from_str(line_str).ok()?;
     let source = line.source.unwrap_or_default();
     let line_type = line.line_type.unwrap_or_default();
@@ -176,11 +321,108 @@ fn process_line(line_str: &str) -> Option<(String, String, String)> {
     Some((status, last_tool, detail))
 }
 
+// 解析通用日志状态的主入口
+fn process_any_log(path: &Path, tool_name: &str) -> Option<(String, String, String)> {
+    if tool_name == "Antigravity" {
+        let content = fs::read_to_string(path).ok()?;
+        let lines: Vec<&str> = content.lines().collect();
+        let last_line = lines.last()?;
+        parse_antigravity_line(last_line)
+    } else if tool_name == "Roo Code" {
+        // Roo Code 属于 JSON 数组
+        let content = fs::read_to_string(path).ok()?;
+        let arr: serde_json::Value = serde_json::from_str(&content).ok()?;
+        if let Some(list) = arr.as_array() {
+            if let Some(last_val) = list.last() {
+                let say = last_val.get("say").and_then(|v| v.as_str()).unwrap_or("");
+                let ask = last_val.get("ask").and_then(|v| v.as_str()).unwrap_or("");
+                
+                let mut status = "RUNNING".to_string();
+                let mut detail = "AI 正在执行任务...".to_string();
+                let last_tool = if !ask.is_empty() { ask.to_string() } else { say.to_string() };
+                
+                if !ask.is_empty() {
+                    status = "WAITING".to_string();
+                    detail = match ask {
+                        "command" => "请求执行终端命令，等待您的确认".to_string(),
+                        "tool" => "请求使用开发工具，等待您的确认".to_string(),
+                        _ => format!("等待确认操作: {}", ask),
+                    };
+                } else if say == "completion" || say == "task" {
+                    status = "COMPLETED".to_string();
+                    detail = "AI 任务执行完毕，已给出最终答复".to_string();
+                } else {
+                    status = "RUNNING".to_string();
+                    detail = format!("正在自动处理: {}", say);
+                }
+                
+                return Some((status, last_tool, detail));
+            }
+        }
+        None
+    } else if tool_name == "Claude Code" {
+        // Claude Code 属于 JSONL 会话记录
+        let content = fs::read_to_string(path).ok()?;
+        let lines: Vec<&str> = content.lines().collect();
+        let last_line = lines.last()?;
+        
+        let val: serde_json::Value = serde_json::from_str(last_line).ok()?;
+        let role = val.get("role").and_then(|v| v.as_str()).unwrap_or("");
+        
+        let mut status = "RUNNING".to_string();
+        let mut last_tool = "".to_string();
+        let mut detail = "Claude Code 正在执行中...".to_string();
+        
+        if role == "user" {
+            status = "RUNNING".to_string();
+            detail = "用户发送了新问题，Claude Code开始思考".to_string();
+        } else if role == "assistant" {
+            let content_blocks = val.get("content").and_then(|c| c.as_array());
+            let mut has_tool_use = false;
+            let mut tool_names = Vec::new();
+            if let Some(blocks) = content_blocks {
+                for block in blocks {
+                    let block_type = block.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                    if block_type == "tool_use" {
+                        has_tool_use = true;
+                        if let Some(name) = block.get("name").and_then(|n| n.as_str()) {
+                            tool_names.push(name.to_string());
+                        }
+                    }
+                }
+            }
+            
+            if has_tool_use {
+                last_tool = tool_names.join(", ");
+                let mut requires_approval = false;
+                for name in &tool_names {
+                    if name.contains("bash") || name.contains("execute") || name.contains("write") {
+                        requires_approval = true;
+                        break;
+                    }
+                }
+                if requires_approval {
+                    status = "WAITING".to_string();
+                    detail = format!("请求执行命令/修改文件: {}，等待您的授权", last_tool);
+                } else {
+                    status = "RUNNING".to_string();
+                    detail = format!("正在自动调用工具: {}", last_tool);
+                }
+            } else {
+                status = "COMPLETED".to_string();
+                detail = "Claude Code 执行结束，已给出最终结果".to_string();
+            }
+        }
+        Some((status, last_tool, detail))
+    } else {
+        None
+    }
+}
+
 // 格式化当前时间为 H:M:S
 fn get_time_string() -> String {
-    // 简单获取时间
     if let Ok(duration) = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        let total_secs = duration.as_secs() + 8 * 3600; // 东八区时区加8小时
+        let total_secs = duration.as_secs() + 8 * 3600; // 东八区
         let secs = total_secs % 60;
         let mins = (total_secs / 60) % 60;
         let hours = (total_secs / 3600) % 24;
@@ -190,7 +432,7 @@ fn get_time_string() -> String {
     }
 }
 
-// 后台监控日志线程逻辑
+// 后台多日志并行与自适应监控主循环
 fn start_monitoring(app: AppHandle) {
     thread::spawn(move || {
         let mut last_file: Option<PathBuf> = None;
@@ -199,18 +441,19 @@ fn start_monitoring(app: AppHandle) {
         loop {
             thread::sleep(Duration::from_millis(500));
             
-            let current_file = match find_latest_transcript() {
-                Some(path) => path,
+            // 获取当前最新启用的配置
+            let config = {
+                let config_state = app.state::<AppConfig>();
+                let current = config_state.config.lock().unwrap();
+                current.clone()
+            };
+            
+            // 扫描定位当前最新修改的工具日志
+            let (current_file, tool_name) = match find_absolute_latest_log(&config) {
+                Some((path, name)) => (path, name),
                 None => continue,
             };
             
-            // 提炼会话 ID
-            let convo_id = current_file.parent()
-                .and_then(|p| p.parent())
-                .and_then(|p| p.parent())
-                .map(|p| p.file_name().unwrap_or_default().to_string_lossy().to_string())
-                .unwrap_or_default();
-                
             let mut reset = false;
             if Some(&current_file) != last_file.as_ref() {
                 last_file = Some(current_file.clone());
@@ -228,41 +471,33 @@ fn start_monitoring(app: AppHandle) {
             }
             
             if file_size > last_size || reset {
-                // 读取新内容
-                if let Ok(content) = fs::read_to_string(&current_file) {
-                    let lines: Vec<&str> = content.lines().collect();
-                    if !lines.is_empty() {
-                        let last_line = lines.last().unwrap_or(&"");
-                        if let Some((status, last_tool, detail)) = process_line(last_line) {
-                            
-                            // 更新全局状态并广播
-                            let state_handle = app.state::<AppState>();
-                            let mut state = state_handle.state.lock().unwrap();
-                            
-                            let prev_status = state.status.clone();
-                            state.status = status.clone();
-                            state.last_tool = last_tool.clone();
-                            state.conversation_id = convo_id.clone();
-                            state.log_file = current_file.to_string_lossy().to_string();
-                            state.last_update = get_time_string();
-                            
-                            if prev_status != status {
-                                let event = EventItem {
-                                    time: state.last_update.clone(),
-                                    from: prev_status,
-                                    to: status.clone(),
-                                    detail: detail.clone(),
-                                };
-                                state.events.insert(0, event);
-                                if state.events.len() > 15 {
-                                    state.events.truncate(15);
-                                }
-                                
-                                // 广播事件到前端
-                                let payload = state.clone();
-                                let _ = app.emit("status-changed", payload);
-                            }
+                if let Some((status, last_tool, detail)) = process_any_log(&current_file, &tool_name) {
+                    
+                    let state_handle = app.state::<AppState>();
+                    let mut state = state_handle.state.lock().unwrap();
+                    
+                    let prev_status = state.status.clone();
+                    state.status = status.clone();
+                    state.last_tool = last_tool.clone();
+                    // 显示具体的工具来源，例如 "Antigravity" 或 "Claude Code"
+                    state.conversation_id = format!("{} (活跃监控中)", tool_name);
+                    state.log_file = current_file.to_string_lossy().to_string();
+                    state.last_update = get_time_string();
+                    
+                    if prev_status != status {
+                        let event = EventItem {
+                            time: state.last_update.clone(),
+                            from: prev_status,
+                            to: status.clone(),
+                            detail: format!("[{}] {}", tool_name, detail),
+                        };
+                        state.events.insert(0, event);
+                        if state.events.len() > 15 {
+                            state.events.truncate(15);
                         }
+                        
+                        let payload = state.clone();
+                        let _ = app.emit("status-changed", payload);
                     }
                 }
                 last_size = file_size;
@@ -287,13 +522,11 @@ fn get_config(config_state: State<'_, AppConfig>) -> Config {
 
 #[tauri::command]
 fn save_config(app: AppHandle, config_state: State<'_, AppConfig>, new_config: Config) -> Result<(), String> {
-    // 写入全局状态
     {
         let mut current = config_state.config.lock().unwrap();
         *current = new_config.clone();
     }
     
-    // 保存至本地文件
     if let Some(dir) = app.path().app_config_dir().ok() {
         let _ = fs::create_dir_all(&dir);
         let config_path = dir.join("config.json");
@@ -305,14 +538,52 @@ fn save_config(app: AppHandle, config_state: State<'_, AppConfig>, new_config: C
     Ok(())
 }
 
+// 自动探测当前电脑上安装了哪些 AI 编程工具
+#[tauri::command]
+fn detect_tools() -> Vec<ToolStatus> {
+    let home = match get_user_home() {
+        Some(h) => h,
+        None => return Vec::new(),
+    };
+    
+    let mut results = Vec::new();
+    
+    // 1. Antigravity
+    let anti_path = Path::new(&home).join(".gemini").join("antigravity");
+    results.push(ToolStatus {
+        name: "Antigravity".to_string(),
+        installed: anti_path.exists(),
+        path: anti_path.to_string_lossy().to_string(),
+    });
+    
+    // 2. Roo Code / Cline
+    let roo_path = if cfg!(target_os = "windows") {
+        Path::new(&home).join("AppData").join("Roaming").join("Code").join("User")
+            .join("globalStorage").join("saoudrizwan.claude-dev")
+    } else {
+        Path::new(&home).join("Library").join("Application Support").join("Code").join("User")
+            .join("globalStorage").join("saoudrizwan.claude-dev")
+    };
+    results.push(ToolStatus {
+        name: "Roo Code / Cline".to_string(),
+        installed: roo_path.exists(),
+        path: roo_path.to_string_lossy().to_string(),
+    });
+    
+    // 3. Claude Code
+    let claude_path = Path::new(&home).join(".claude");
+    results.push(ToolStatus {
+        name: "Claude Code".to_string(),
+        installed: claude_path.exists(),
+        path: claude_path.to_string_lossy().to_string(),
+    });
+    
+    results
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 初始化默认配置
     let mut config = get_default_config();
-    
-    // 尝试从磁盘加载配置
-    // 我们必须手动实现 AppContext 初始化之前的加载，或者在 setup 中加载
-    // 为了简单，我们使用 tauri 2.0 的 API 在运行时处理。下面在 builder 中获取路径：
     
     let state = AppState {
         state: Mutex::new(StatusState {
@@ -329,7 +600,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(state)
         .setup(|app| {
-            // 在初始化时读取本地配置文件
             if let Some(dir) = app.path().app_config_dir().ok() {
                 let config_path = dir.join("config.json");
                 if config_path.exists() {
@@ -345,12 +615,11 @@ pub fn run() {
                 config: Mutex::new(config),
             });
             
-            // 启动后台日志监听线程
             start_monitoring(app.handle().clone());
             
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_status, get_config, save_config])
+        .invoke_handler(tauri::generate_handler![get_status, get_config, save_config, detect_tools])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

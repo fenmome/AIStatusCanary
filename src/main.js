@@ -31,6 +31,25 @@ function getTauri() {
     return window.__TAURI__ || null;
 }
 
+// 🎯 侧边栏主菜单切换
+window.switchPage = function(pageId) {
+    // 切换页面视图显示
+    document.querySelectorAll('.page-view').forEach(view => {
+        view.classList.remove('active');
+    });
+    document.getElementById(pageId).classList.add('active');
+
+    // 切换导航按钮高亮
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // 匹配点击的按钮
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
+    }
+};
+
 // 初始化并激活 AudioContext
 function initAudio() {
     if (!audioCtx) {
@@ -160,17 +179,68 @@ function showToast(message) {
     }, 2500);
 }
 
-// 切换选项卡
+// Webhook 子标签页切换
 window.switchTab = function(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
-    // 激活当前
     if (event && event.target) {
         event.target.classList.add('active');
     }
     document.getElementById(tabId).classList.add('active');
 };
+
+// 🤖 智能探测并渲染本地 AI 工具列表
+async function renderToolsDetection(config) {
+    const tauri = getTauri();
+    if (!tauri) return;
+
+    try {
+        const tools = await tauri.core.invoke('detect_tools');
+        const container = document.getElementById('tools-list-container');
+        let html = "";
+        
+        tools.forEach(tool => {
+            // 根据名称对应 config 中的开关
+            let configKey = "";
+            let isEnabled = true;
+            
+            if (tool.name === "Antigravity") {
+                configKey = "enable_antigravity";
+                isEnabled = config.enable_antigravity;
+            } else if (tool.name === "Roo Code / Cline") {
+                configKey = "enable_roocode";
+                isEnabled = config.enable_roocode;
+            } else if (tool.name === "Claude Code") {
+                configKey = "enable_claudecode";
+                isEnabled = config.enable_claudecode;
+            }
+            
+            const badgeClass = tool.installed ? "badge-installed" : "badge-missing";
+            const badgeText = tool.installed ? "已检测到" : "未检测到";
+            
+            html += `
+                <div class="tool-card">
+                    <div class="tool-info">
+                        <div class="tool-meta">
+                            <span class="tool-name">${tool.name}</span>
+                            <span class="badge ${badgeClass}">${badgeText}</span>
+                        </div>
+                        <span class="tool-path" title="${tool.path}">路径: ${tool.path}</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="${configKey}" ${isEnabled ? 'checked' : ''} ${!tool.installed ? 'disabled' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    } catch (e) {
+        console.error("智能探测工具失败:", e);
+    }
+}
 
 // 加载配置
 async function loadSettings() {
@@ -187,6 +257,9 @@ async function loadSettings() {
         document.getElementById('push_on_waiting').checked = !!data.push_on_waiting;
         document.getElementById('push_on_completed').checked = !!data.push_on_completed;
         document.getElementById('push_on_running').checked = !!data.push_on_running;
+        
+        // 加载并渲染 AI 工具面板
+        await renderToolsDetection(data);
     } catch (e) {
         console.error("无法加载本地配置:", e);
     }
@@ -206,12 +279,19 @@ window.saveSettings = async function(e) {
         push_on_waiting: document.getElementById('push_on_waiting').checked,
         push_on_completed: document.getElementById('push_on_completed').checked,
         push_on_running: document.getElementById('push_on_running').checked,
-        port: 8000
+        port: 8000,
+        
+        // 绑定 AI 工具启用开关，如果未检测到则强制为 false
+        enable_antigravity: document.getElementById('enable_antigravity') ? document.getElementById('enable_antigravity').checked : false,
+        enable_roocode: document.getElementById('enable_roocode') ? document.getElementById('enable_roocode').checked : false,
+        enable_claudecode: document.getElementById('enable_claudecode') ? document.getElementById('enable_claudecode').checked : false,
     };
     
     try {
         await tauri.core.invoke('save_config', { newConfig: payload });
         showToast("配置已成功保存");
+        // 刷新一下列表
+        await loadSettings();
     } catch (e) {
         showToast("保存配置失败: " + e);
     }
@@ -239,10 +319,10 @@ async function sendNotification(status, detail) {
     const dateStr = new Date().toLocaleString();
     const body = `时间: ${dateStr}\n细节: ${detail}`;
     
-    // Bark 推送
+    // Bark
     if (config.bark_key) {
         const url = `https://api.day.app/${config.bark_key}/${encodeURIComponent(title)}/${encodeURIComponent(body)}`;
-        fetch(url).catch(e => console.error("Bark 推送失败:", e));
+        fetch(url).catch(e => console.error("Bark failed:", e));
     }
     // 飞书
     if (config.feishu_webhook) {
@@ -260,7 +340,7 @@ async function sendNotification(status, detail) {
                     }
                 }
             })
-        }).catch(e => console.error("飞书 Webhook 失败:", e));
+        }).catch(e => console.error("飞书 failed:", e));
     }
     // 钉钉
     if (config.dingtalk_webhook) {
@@ -274,7 +354,7 @@ async function sendNotification(status, detail) {
                     text: `### ${title}\n\n${body}`
                 }
             })
-        }).catch(e => console.error("钉钉 Webhook 失败:", e));
+        }).catch(e => console.error("钉钉 failed:", e));
     }
     // 企业微信
     if (config.wechat_webhook) {
@@ -287,15 +367,13 @@ async function sendNotification(status, detail) {
                     content: `**${title}**\n\n${body}`
                 }
             })
-        }).catch(e => console.error("企业微信 Webhook 失败:", e));
+        }).catch(e => console.error("企业微信 failed:", e));
     }
 }
 
 // 测试通知推送
 window.testNotification = async function(channel) {
     let keyVal = "";
-    let payload = {};
-    
     if (channel === 'bark') {
         keyVal = document.getElementById('bark_key').value.trim();
         if (!keyVal) { showToast("请先填入 Bark Key"); return; }
@@ -365,16 +443,15 @@ window.testNotification = async function(channel) {
     }
 };
 
-// 状态变更的核心更新处理
+// 状态更新处理函数
 function handleStateChange(data) {
-    // 更新会话 ID
-    document.getElementById('session-id').innerText = data.conversation_id || '暂无活跃会话';
+    // 侧边栏底部显示当前的监控工具源
+    document.getElementById('session-id').innerText = data.conversation_id || '自适应';
     
     const status = data.status;
     const lastTool = data.last_tool || '无';
     const lastUpdate = data.last_update || '--:--:--';
     
-    // 更新元数据
     document.getElementById('last-tool').innerText = lastTool;
     document.getElementById('last-update').innerText = lastUpdate;
     
@@ -382,17 +459,14 @@ function handleStateChange(data) {
         updateStatusUI(status, data);
         
         if (!isFirstLoad) {
-            // 本地响铃
             playSynthesizedSound(status.toLowerCase());
             
-            // TTS 播报
             let speechText = "";
             if (status === 'RUNNING') speechText = "AI 开始执行。";
             if (status === 'WAITING') speechText = "AI 正在等待确认！";
             if (status === 'COMPLETED') speechText = "AI 任务执行完毕。";
             speakStatus(speechText);
             
-            // 异步触发云端推送
             const detailMsg = data.events && data.events.length > 0 ? data.events[0].detail : "";
             sendNotification(status, detailMsg);
         }
@@ -404,7 +478,7 @@ function handleStateChange(data) {
     renderTimeline(data.events);
 }
 
-// 改变状态界面配色
+// 改变状态指示器 UI
 function updateStatusUI(status, data) {
     const ring = document.getElementById('status-ring');
     const display = document.getElementById('status-display');
@@ -443,7 +517,7 @@ function updateStatusUI(status, data) {
     }
 }
 
-// 渲染历史事件列表
+// 渲染历史事件
 function renderTimeline(events) {
     const container = document.getElementById('events-timeline');
     if (!events || events.length === 0) {
@@ -484,9 +558,9 @@ function renderTimeline(events) {
     container.innerHTML = html;
 }
 
-// 绑定与初始化加载
+// DOM 加载完成后的初始绑定
 window.addEventListener('DOMContentLoaded', async () => {
-    // 声音和语音开关本地存储获取
+    // 恢复音效/TTS本地状态
     if (localStorage.getItem('sound-enabled') !== null) {
         document.getElementById('sound-toggle').checked = localStorage.getItem('sound-enabled') === 'true';
     }
@@ -517,12 +591,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('alert-volume', e.target.value);
     });
     
-    // 初始化配置加载
+    // 加载并渲染配置
     await loadSettings();
     
     const tauri = getTauri();
     if (tauri) {
-        // 1. 获取初始状态
+        // 获取初始状态
         try {
             const currentData = await tauri.core.invoke('get_status');
             handleStateChange(currentData);
@@ -530,7 +604,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             console.error("获取初始状态失败:", e);
         }
         
-        // 2. 注册监听 Rust 后端状态推送事件
+        // 绑定状态通知事件
         try {
             await tauri.event.listen('status-changed', (event) => {
                 handleStateChange(event.payload);
@@ -540,6 +614,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             console.error("注册 Tauri 状态监听失败:", e);
         }
     } else {
-        document.getElementById('session-id').innerText = '未在桌面客户端中运行';
+        document.getElementById('session-id').innerText = '非桌面端环境';
     }
 });

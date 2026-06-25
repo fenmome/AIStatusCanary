@@ -1,0 +1,401 @@
+/* AI Status Canary Mobile - Styling */
+:root {
+    --bg-dark: #0a0e17;
+    --panel-bg: rgba(255, 255, 255, 0.03);
+    --panel-border: rgba(255, 255, 255, 0.07);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    --color-running: #3b82f6;
+    --glow-running: rgba(59, 130, 246, 0.4);
+    
+    --color-waiting: #f59e0b;
+    --glow-waiting: rgba(245, 158, 11, 0.4);
+    
+    --color-completed: #10b981;
+    --glow-completed: rgba(16, 185, 129, 0.4);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    padding: 1rem;
+    position: relative;
+}
+
+/* 炫酷背景光效 */
+.background-decor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.circle-decor {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.12;
+    width: 80vw;
+    height: 80vw;
+}
+
+.orb-blue {
+    top: -20%;
+    left: -20%;
+    background: radial-gradient(circle, var(--color-running) 0%, transparent 70%);
+}
+
+.orb-amber {
+    bottom: -20%;
+    right: -20%;
+    background: radial-gradient(circle, var(--color-waiting) 0%, transparent 70%);
+}
+
+/* 布局 */
+.app-container {
+    max-width: 480px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-bottom: 2rem;
+}
+
+/* 通用毛玻璃卡片 */
+.glass-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 头部 */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.brand-logo {
+    width: 28px;
+    height: 28px;
+    color: var(--color-running);
+}
+
+.brand-text h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.brand-text p {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* 状态展示大卡片 */
+.monitor-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem 1.25rem;
+    text-align: center;
+}
+
+.status-ring-container {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 3px solid var(--color-completed);
+    box-shadow: 0 0 20px var(--glow-completed);
+    transition: all 0.5s ease;
+}
+
+.status-icon-holder {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.status-icon-holder svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 1.5px;
+    transition: transform 0.3s ease;
+}
+
+.status-info h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.5px;
+}
+
+.tool-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.tool-meta .label {
+    color: var(--text-muted);
+}
+
+.tool-meta .value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.status-desc {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: 280px;
+    margin: 0 auto;
+}
+
+/* 状态对应样式 */
+.status-RUNNING .status-ring {
+    border-color: var(--color-running);
+    box-shadow: 0 0 25px var(--glow-running);
+    animation: spin-pulse 3s linear infinite;
+}
+.status-RUNNING .brand-logo,
+.status-RUNNING .status-icon-holder {
+    color: var(--color-running);
+}
+
+.status-WAITING .status-ring {
+    border-color: var(--color-waiting);
+    box-shadow: 0 0 35px var(--glow-waiting);
+    animation: pulse-ring-waiting 1.5s ease-in-out infinite;
+}
+.status-WAITING .brand-logo,
+.status-WAITING .status-icon-holder {
+    color: var(--color-waiting);
+    animation: shake-icon 0.5s ease-in-out infinite alternate;
+}
+
+.status-COMPLETED .status-ring {
+    border-color: var(--color-completed);
+    box-shadow: 0 0 20px var(--glow-completed);
+}
+.status-COMPLETED .brand-logo,
+.status-COMPLETED .status-icon-holder {
+    color: var(--color-completed);
+}
+
+/* 动画定义 */
+@keyframes spin-pulse {
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.03); }
+    100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes pulse-ring-waiting {
+    0% { transform: scale(1); opacity: 1; box-shadow: 0 0 20px var(--glow-waiting); }
+    50% { transform: scale(1.06); opacity: 0.8; box-shadow: 0 0 45px var(--glow-waiting); }
+    100% { transform: scale(1); opacity: 1; box-shadow: 0 0 20px var(--glow-waiting); }
+}
+
+@keyframes shake-icon {
+    0% { transform: rotate(-5deg); }
+    100% { transform: rotate(5deg); }
+}
+
+/* 状态切换与设置 */
+h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.setting-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.setting-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-width: 70%;
+}
+
+.setting-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.setting-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* 按钮 */
+.btn {
+    background: none;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: var(--color-running);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.btn-primary:active {
+    transform: scale(0.97);
+}
+
+.btn-primary:disabled {
+    background: var(--text-muted);
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.ios-pwa-tip {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* 历史列表 */
+.event-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.timeline-empty {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 1rem 0;
+}
+
+.timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    font-size: 0.8rem;
+}
+
+.timeline-item:last-child {
+    border-bottom: none;
+}
+
+.time-badge {
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.timeline-detail {
+    line-height: 1.4;
+}
+
+.timeline-detail .status-tag {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-right: 0.25rem;
+}
+
+.tag-RUNNING { background: rgba(59, 130, 246, 0.15); color: var(--color-running); }
+.tag-WAITING { background: rgba(245, 158, 11, 0.15); color: var(--color-waiting); }
+.tag-COMPLETED { background: rgba(16, 185, 129, 0.15); color: var(--color-completed); }
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 0.75rem 1.5rem;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.toast.show {
+    transform: translateX(-50%) translateY(0);
+}

@@ -1,0 +1,24 @@
+{
+  "name": "AI 状态哨兵 (AI Status Canary)",
+  "short_name": "AI 状态哨兵",
+  "description": "AI 状态哨兵手机客户端，接收来自电脑端的 AI 工具执行状态提醒",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -165,6 +165,7 @@
                             <div class="settings-tabs">
                                 <button class="tab-btn active" onclick="switchTab('tab-bark')">Bark (苹果)</button>
                                 <button class="tab-btn" onclick="switchTab('tab-webhook')">群机器人 (Webhook)</button>
+                                <button class="tab-btn" onclick="switchTab('tab-custom')">自建推送</button>
                             </div>
                             
                             <form id="settings-form" onsubmit="saveSettings(event)">
@@ -204,6 +205,18 @@
                                             <input type="text" id="wechat_webhook" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...">
                                             <button type="button" class="btn btn-action" onclick="testNotification('wechat')">测试</button>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- 自建推送 Tab -->
+                                <div id="tab-custom" class="tab-content">
+                                    <div class="input-group">
+                                        <label for="custom_push_url">自建推送接口地址</label>
+                                        <div class="input-with-btn">
+                                            <input type="text" id="custom_push_url" placeholder="http://<服务器IP>:3000/api/notify">
+                                            <button type="button" class="btn btn-action" onclick="testNotification('custom')">测试</button>
+                                        </div>
+                                        <p class="input-hint">填入自建 Node.js 中转服务器的通知接口链接。当状态改变时，电脑端会向此地址发送状态详情以触发手机通知。</p>
                                     </div>
                                 </div>
 

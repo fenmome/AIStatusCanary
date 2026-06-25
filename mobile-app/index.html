@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 状态哨兵</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- iOS PWA 支持 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AI 状态哨兵">
+    <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+    <div class="background-decor">
+        <div class="circle-decor orb-blue"></div>
+        <div class="circle-decor orb-amber"></div>
+    </div>
+    
+    <div class="app-container">
+        <!-- 头部 -->
+        <header class="glass-panel header">
+            <div class="brand">
+                <svg class="brand-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="brand-text">
+                    <h1>AI Status Canary</h1>
+                    <p>移动端监控中心</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- 监控大屏 (类似电脑端大呼吸环) -->
+        <main class="glass-panel monitor-section status-COMPLETED" id="status-card">
+            <div class="radial-glow"></div>
+            <div class="status-ring-container">
+                <div class="status-ring" id="pulse-ring"></div>
+                <div class="status-icon-holder" id="status-icon">
+                    <!-- 默认打勾图标 -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-completed">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke-linecap="round" stroke-linejoin="round"/>
+                        <polyline points="22 4 12 14.01 9 11.01" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="status-info">
+                <h2 id="status-text">就绪</h2>
+                <div class="tool-meta">
+                    <span class="label">活跃工具:</span>
+                    <span id="active-tool" class="value">无</span>
+                </div>
+                <div class="status-desc" id="status-desc">
+                    AI 状态哨兵已准备就绪，正在等待客户端消息...
+                </div>
+            </div>
+        </main>
+
+        <!-- PWA 通知权限启用选项 -->
+        <section class="glass-panel config-section">
+            <h3>📱 推送订阅设置</h3>
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-title">系统级推送通知</span>
+                    <span class="setting-desc" id="pwa-support-desc">正在检查浏览器兼容性...</span>
+                </div>
+                <button class="btn btn-primary" id="btn-subscribe" disabled>启用推送</button>
+            </div>
+            <div class="ios-pwa-tip" id="ios-tip" style="display: none;">
+                💡 <b>iOS 用户提示</b>: 请点击浏览器底部的“分享”按钮，选择 <b>“添加到主屏幕”</b>，然后再打开此 App 即可启用原生推送通知。
+            </div>
+        </section>
+
+        <!-- 历史警报日志 -->
+        <section class="glass-panel logs-section">
+            <h3>📜 历史事件流水线</h3>
+            <div class="event-timeline" id="events-timeline">
+                <div class="timeline-empty">暂无历史事件</div>
+            </div>
+        </section>
+    </div>
+
+    <!-- 提示框 -->
+    <div class="toast" id="toast"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

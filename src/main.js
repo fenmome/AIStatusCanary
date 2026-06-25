@@ -259,6 +259,7 @@ async function loadSettings() {
         document.getElementById('feishu_webhook').value = data.feishu_webhook || '';
         document.getElementById('dingtalk_webhook').value = data.dingtalk_webhook || '';
         document.getElementById('wechat_webhook').value = data.wechat_webhook || '';
+        document.getElementById('custom_push_url').value = data.custom_push_url || '';
         
         document.getElementById('push_on_waiting').checked = !!data.push_on_waiting;
         document.getElementById('push_on_completed').checked = !!data.push_on_completed;
@@ -282,6 +283,7 @@ window.saveSettings = async function(e) {
         feishu_webhook: document.getElementById('feishu_webhook').value.trim(),
         dingtalk_webhook: document.getElementById('dingtalk_webhook').value.trim(),
         wechat_webhook: document.getElementById('wechat_webhook').value.trim(),
+        custom_push_url: document.getElementById('custom_push_url').value.trim(),
         push_on_waiting: document.getElementById('push_on_waiting').checked,
         push_on_completed: document.getElementById('push_on_completed').checked,
         push_on_running: document.getElementById('push_on_running').checked,
@@ -376,6 +378,31 @@ async function sendNotification(status, detail) {
             })
         }).catch(e => console.error("企业微信 failed:", e));
     }
+    
+    // 自建云端推送
+    if (config.custom_push_url) {
+        tauri.core.invoke('get_status').then(current => {
+            fetch(config.custom_push_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: current.status,
+                    last_tool: current.last_tool,
+                    detail: detail
+                })
+            }).catch(e => console.error("自建云端推送 failed:", e));
+        }).catch(() => {
+            fetch(config.custom_push_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: status,
+                    last_tool: "AI 状态哨兵",
+                    detail: detail
+                })
+            }).catch(e => console.error("自建云端推送 failed:", e));
+        });
+    }
 }
 
 // 测试通知推送
@@ -393,6 +420,9 @@ window.testNotification = async function(channel) {
     } else if (channel === 'wechat') {
         keyVal = document.getElementById('wechat_webhook').value.trim();
         if (!keyVal) { showToast("请先填入企业微信 Webhook"); return; }
+    } else if (channel === 'custom') {
+        keyVal = document.getElementById('custom_push_url').value.trim();
+        if (!keyVal) { showToast("请先填入自建推送接口地址"); return; }
     }
     
     showToast("正在发送测试推送...");
@@ -441,6 +471,16 @@ window.testNotification = async function(channel) {
                     markdown: {
                         content: `**${title}**\n\n${body}`
                     }
+                })
+            });
+        } else if (channel === 'custom') {
+            await fetch(keyVal, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: "WAITING",
+                    last_tool: "测试工具",
+                    detail: "自建推送通道测试成功！"
                 })
             });
         }

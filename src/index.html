@@ -218,12 +218,12 @@
                                 <!-- 自建推送 Tab -->
                                 <div id="tab-custom" class="tab-content">
                                     <div class="input-group">
-                                        <label for="custom_push_url">自建推送接口地址</label>
+                                        <label for="custom_push_url">自建/云端中转推送接口地址</label>
                                         <div class="input-with-btn">
-                                            <input type="text" id="custom_push_url" placeholder="http://<服务器IP>:3000/api/notify">
+                                            <input type="text" id="custom_push_url" placeholder="https://<YOUR_WORKER>.workers.dev/api/notify">
                                             <button type="button" class="btn btn-action" onclick="testNotification('custom')">测试</button>
                                         </div>
-                                        <p class="input-hint">填入自建 Node.js 中转服务器的通知接口链接。当状态改变时，电脑端会向此地址发送状态详情以触发手机通知。</p>
+                                        <p class="input-hint">填入 Cloudflare Worker 或自建中转服务器的通知接口（例如：<code>https://your-worker-name.workers.dev/api/notify</code>）。当状态改变时，电脑端会向此地址发送状态详情以触发手机通知。</p>
                                     </div>
                                 </div>
 

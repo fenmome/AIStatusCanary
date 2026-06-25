@@ -35,7 +35,8 @@ export async function onRequest(context) {
 
   // 路由 2: 获取当前状态
   if (url.pathname === '/api/status' && request.method === 'GET') {
-    const lastStatus = await env.CANARY_KV.get('last_status', 'json') || {
+    const token = url.searchParams.get('token') || 'default';
+    const lastStatus = await env.CANARY_KV.get(`last_status:${token}`, 'json') || {
       status: "COMPLETED", last_tool: "无", detail: "AI 状态哨兵已就绪"
     };
     return new Response(JSON.stringify(lastStatus), {
@@ -45,6 +46,7 @@ export async function onRequest(context) {
 
   // 路由 3: 手机端注册推送订阅
   if (url.pathname === '/api/subscribe' && request.method === 'POST') {
+    const token = url.searchParams.get('token') || 'default';
     const subscription = await request.json();
     if (!subscription || !subscription.endpoint) {
       return new Response(JSON.stringify({ error: "无效的订阅" }), {
@@ -52,11 +54,11 @@ export async function onRequest(context) {
       });
     }
     
-    let subscriptions = await env.CANARY_KV.get('subscriptions', 'json') || [];
+    let subscriptions = await env.CANARY_KV.get(`subscriptions:${token}`, 'json') || [];
     const exists = subscriptions.some(sub => sub.endpoint === subscription.endpoint);
     if (!exists) {
       subscriptions.push(subscription);
-      await env.CANARY_KV.put('subscriptions', JSON.stringify(subscriptions));
+      await env.CANARY_KV.put(`subscriptions:${token}`, JSON.stringify(subscriptions));
     }
     
     return new Response(JSON.stringify({ success: true }), {
@@ -66,10 +68,11 @@ export async function onRequest(context) {
 
   // 路由 4: 电脑客户端推送状态变更通知
   if (url.pathname === '/api/notify' && request.method === 'POST') {
+    const token = url.searchParams.get('token') || 'default';
     const payload = await request.json();
-    await env.CANARY_KV.put('last_status', JSON.stringify(payload));
+    await env.CANARY_KV.put(`last_status:${token}`, JSON.stringify(payload));
     
-    let subscriptions = await env.CANARY_KV.get('subscriptions', 'json') || [];
+    let subscriptions = await env.CANARY_KV.get(`subscriptions:${token}`, 'json') || [];
     const payloadString = JSON.stringify(payload);
     
     let expiredEndpoints = [];
@@ -88,7 +91,7 @@ export async function onRequest(context) {
     
     if (expiredEndpoints.length > 0) {
       subscriptions = subscriptions.filter(sub => !expiredEndpoints.includes(sub.endpoint));
-      await env.CANARY_KV.put('subscriptions', JSON.stringify(subscriptions));
+      await env.CANARY_KV.put(`subscriptions:${token}`, JSON.stringify(subscriptions));
     }
     
     return new Response(JSON.stringify({ success: true, sent: promises.length - expiredEndpoints.length }), {

@@ -67,6 +67,13 @@
             <h3>📱 推送订阅设置</h3>
             <div class="setting-item">
                 <div class="setting-info">
+                    <span class="setting-title">配对 Token</span>
+                    <span class="setting-desc">与电脑端保持状态同步的唯一凭证</span>
+                </div>
+                <input type="text" id="pairing-token" class="custom-select" style="text-align: center; min-width: 130px; font-family: monospace; font-weight: 600;" placeholder="default" onchange="updateTokenPref(this.value)">
+            </div>
+            <div class="setting-item">
+                <div class="setting-info">
                     <span class="setting-title">系统级推送通知</span>
                     <span class="setting-desc" id="pwa-support-desc">正在检查浏览器兼容性...</span>
                 </div>

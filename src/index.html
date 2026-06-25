@@ -225,6 +225,19 @@
                                         </div>
                                         <p class="input-hint">填入 Cloudflare Worker 或自建中转服务器的通知接口（例如：<code>https://your-worker-name.workers.dev/api/notify</code>）。当状态改变时，电脑端会向此地址发送状态详情以触发手机通知。</p>
                                     </div>
+                                    <div class="pairing-container" style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; align-items: center; gap: 1.25rem;">
+                                        <div class="pairing-info" style="flex: 1;">
+                                            <label style="display: block; font-weight: 600; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.35rem;">📱 手机 PWA 扫码配对</label>
+                                            <p class="input-hint" style="margin-bottom: 0.85rem; font-size: 0.72rem; line-height: 1.4;">用手机扫描右侧二维码，或手动将下方的 Token 填入手机端设置，即可一键配对并订阅此电脑的 AI 状态通知。</p>
+                                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                                <input type="text" id="pairing-token-display" readonly style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1); color: #10b981; font-family: monospace; font-size: 1rem; font-weight: 800; text-align: center; border-radius: 6px; padding: 5px 10px; width: 110px; letter-spacing: 1px;" value="------">
+                                                <button type="button" class="btn btn-action" onclick="navigator.clipboard.writeText(document.getElementById('pairing-token-display').value); showToast('Token 已复制到剪贴板')">复制</button>
+                                            </div>
+                                        </div>
+                                        <div class="pairing-qrcode-wrapper" style="width: 100px; height: 100px; background: white; padding: 5px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); overflow: hidden; flex-shrink: 0;">
+                                            <img id="pairing-qrcode-img" style="width: 100%; height: 100%; object-fit: contain;" src="" alt="加载中...">
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- 推送触发条件 -->

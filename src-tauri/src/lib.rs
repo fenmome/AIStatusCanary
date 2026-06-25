@@ -23,6 +23,27 @@ struct LogLine {
 // 辅助函数：提供 Serde 反序列化默认值
 fn default_true() -> bool { true }
 
+fn generate_random_token() -> String {
+    use std::time::SystemTime;
+    let seed = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(d) => d.as_nanos(),
+        Err(_) => 123456789,
+    };
+    let chars: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let mut token = String::new();
+    let mut val = seed;
+    for _ in 0..6 {
+        let idx = (val % (chars.len() as u128)) as usize;
+        token.push(chars[idx] as char);
+        val = val / 31 + 17;
+    }
+    token
+}
+
+fn default_token() -> String {
+    generate_random_token()
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct Config {
     pub bark_key: String,
@@ -34,6 +55,9 @@ pub struct Config {
     pub push_on_waiting: bool,
     pub push_on_completed: bool,
     pub port: u16,
+    
+    #[serde(default = "default_token")]
+    pub token: String,
     
     // 多工具监测开关，默认启用
     #[serde(default = "default_true")]
@@ -115,6 +139,7 @@ fn get_default_config() -> Config {
         push_on_waiting: true,
         push_on_completed: true,
         port: 8000,
+        token: generate_random_token(),
         enable_antigravity: true,
         enable_roocode: true,
         enable_claudecode: true,

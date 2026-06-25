@@ -311,6 +311,21 @@ async function loadSettings() {
         document.getElementById('push_on_completed').checked = !!data.push_on_completed;
         document.getElementById('push_on_running').checked = !!data.push_on_running;
         
+        // 配对 Token 及二维码展示
+        const token = data.token || 'default';
+        document.getElementById('pairing-token-display').value = token;
+        
+        // 动态拼装 PWA 配对链接 (从 custom_push_url 获取基础域，或使用默认)
+        let baseDomain = "https://ai-status-mobile.pages.dev";
+        if (data.custom_push_url) {
+            try {
+                const urlObj = new URL(data.custom_push_url);
+                baseDomain = urlObj.origin;
+            } catch(e) {}
+        }
+        const pairingUrl = `${baseDomain}/?token=${token}`;
+        document.getElementById('pairing-qrcode-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(pairingUrl)}`;
+        
         // 加载并渲染 AI 工具面板
         await renderToolsDetection(data);
     } catch (e) {
@@ -334,6 +349,7 @@ window.saveSettings = async function(e) {
         push_on_completed: document.getElementById('push_on_completed').checked,
         push_on_running: document.getElementById('push_on_running').checked,
         port: 8000,
+        token: document.getElementById('pairing-token-display').value || 'default',
         
         enable_antigravity: document.getElementById('enable_antigravity') ? document.getElementById('enable_antigravity').checked : false,
         enable_roocode: document.getElementById('enable_roocode') ? document.getElementById('enable_roocode').checked : false,
@@ -483,8 +499,15 @@ async function sendNotification(status, detail) {
     
     // 自建云端推送
     if (config.custom_push_url) {
+        let targetUrl = config.custom_push_url;
+        const token = config.token || 'default';
+        if (!targetUrl.includes('token=')) {
+            const separator = targetUrl.includes('?') ? '&' : '?';
+            targetUrl = `${targetUrl}${separator}token=${token}`;
+        }
+        
         tauri.core.invoke('get_status').then(current => {
-            fetch(config.custom_push_url, {
+            fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -494,7 +517,7 @@ async function sendNotification(status, detail) {
                 })
             }).catch(e => console.error("自建云端推送 failed:", e));
         }).catch(() => {
-            fetch(config.custom_push_url, {
+            fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -576,7 +599,13 @@ window.testNotification = async function(channel) {
                 })
             });
         } else if (channel === 'custom') {
-            await fetch(keyVal, {
+            let targetUrl = keyVal;
+            const token = document.getElementById('pairing-token-display').value || 'default';
+            if (!targetUrl.includes('token=')) {
+                const separator = targetUrl.includes('?') ? '&' : '?';
+                targetUrl = `${targetUrl}${separator}token=${token}`;
+            }
+            await fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

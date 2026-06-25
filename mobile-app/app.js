@@ -134,7 +134,8 @@ function updateUIStatus(status, last_tool, detail) {
 // 轮询当前状态
 async function pollStatus() {
     try {
-        const response = await fetch(`${API_BASE}/api/status`);
+        const token = localStorage.getItem('canary_user_token') || 'default';
+        const response = await fetch(`${API_BASE}/api/status?token=${token}`);
         if (!response.ok) return;
         const data = await response.json();
         
@@ -168,6 +169,7 @@ async function subscribeUser() {
     btn.innerText = '请稍候...';
     
     try {
+        const token = localStorage.getItem('canary_user_token') || 'default';
         // 1. 获取服务器公钥
         const resKey = await fetch(`${API_BASE}/api/vapid-public-key`);
         const { publicKey } = await resKey.json();
@@ -180,7 +182,7 @@ async function subscribeUser() {
         });
         
         // 3. 将凭证上传服务器
-        const resSub = await fetch(`${API_BASE}/api/subscribe`, {
+        const resSub = await fetch(`${API_BASE}/api/subscribe?token=${token}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(subscription)
@@ -251,8 +253,9 @@ async function initPWA() {
             isSubscribed = (subscription !== null);
             
             if (isSubscribed) {
+                const token = localStorage.getItem('canary_user_token') || 'default';
                 // 每次启动自动向云端重新上报订阅凭证，防止云端容器重启丢失订阅列表
-                fetch(`${API_BASE}/api/subscribe`, {
+                fetch(`${API_BASE}/api/subscribe?token=${token}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(subscription)
@@ -273,6 +276,21 @@ async function initPWA() {
 
 // 页面载入
 window.addEventListener('DOMContentLoaded', () => {
+    // 解析 URL 中的 token 并存储
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+        localStorage.setItem('canary_user_token', urlToken.trim());
+        // 清理 URL 参数以保持界面美观
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    const token = localStorage.getItem('canary_user_token') || 'default';
+    const tokenInput = document.getElementById('pairing-token');
+    if (tokenInput) {
+        tokenInput.value = token;
+    }
+
     loadHistory();
     initPWA();
     pollStatus();
@@ -344,6 +362,36 @@ window.savePreference = async function(key, val) {
     // 如果是提示音设置变更且不为 none，则播放试听
     if (key === 'sound' && val !== 'none') {
         playTestSound(val);
+    }
+};
+
+window.updateTokenPref = async function(val) {
+    const cleaned = val.trim() || 'default';
+    localStorage.setItem('canary_user_token', cleaned);
+    const tokenInput = document.getElementById('pairing-token');
+    if (tokenInput) {
+        tokenInput.value = cleaned;
+    }
+    showToast("配对 Token 已更新");
+    
+    // 重新拉取一次状态
+    await pollStatus();
+    
+    // 如果已经订阅了通知，在新 Token 下重新注册一次
+    if (isSubscribed && swRegistration) {
+        try {
+            const subscription = await swRegistration.pushManager.getSubscription();
+            if (subscription) {
+                await fetch(`${API_BASE}/api/subscribe?token=${cleaned}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(subscription)
+                });
+                console.log("在新 Token 下同步注册推送凭证成功");
+            }
+        } catch (e) {
+            console.error("在新 Token 下同步注册推送失败:", e);
+        }
     }
 };
 

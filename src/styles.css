@@ -627,7 +627,19 @@ body {
     flex-direction: column;
     gap: 0.75rem;
     overflow-y: auto;
-    max-height: 250px;
+    max-height: 270px;
+    padding-right: 0.25rem;
+}
+
+.tools-list::-webkit-scrollbar {
+    width: 3px;
+}
+.tools-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+.tools-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
 }
 
 .tool-card {
@@ -1151,10 +1163,11 @@ input:checked + .slider:before {
 
 /* 🤖 选项 C - 专属细粒度子开关样式 */
 .tool-item-container {
+    flex-shrink: 0;
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: 12px;
-    margin-bottom: 0.85rem;
+    margin-bottom: 0;
     overflow: hidden;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }

@@ -241,6 +241,15 @@ async function initPWA() {
             const subscription = await swRegistration.pushManager.getSubscription();
             isSubscribed = (subscription !== null);
             
+            if (isSubscribed) {
+                // 每次启动自动向云端重新上报订阅凭证，防止云端容器重启丢失订阅列表
+                fetch(`${API_BASE}/api/subscribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(subscription)
+                }).catch(e => console.error("自动同步订阅凭证失败:", e));
+            }
+            
             updateSubscriptionButton();
             
             btn.addEventListener('click', subscribeUser);

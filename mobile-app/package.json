@@ -1,0 +1,8 @@
+{
+  "name": "ai-status-mobile-app",
+  "version": "1.0.0",
+  "description": "Cloudflare Pages functions for AI Status Canary",
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
+}

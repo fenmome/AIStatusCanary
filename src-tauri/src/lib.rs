@@ -755,7 +755,7 @@ fn detect_tools() -> Vec<ToolStatus> {
 
 #[tauri::command]
 fn get_app_version() -> String {
-    "1.0.5".to_string()
+    "1.0.6".to_string()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
